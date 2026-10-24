@@ -1,0 +1,771 @@
+<div
+  class="application-shell"
+  [attr.data-palette]="selectedPaletteId"
+  [style.color-scheme]="selectedPaletteId === 'restaurant-dark' ? 'dark' : 'light'"
+  [style.--primary-color]="theme.primary"
+  [style.--primary-hover]="theme.primaryHover"
+  [style.--accent-color]="theme.accent"
+  [style.--bg-color]="theme.background"
+  [style.--text-color]="theme.text"
+  [style.--text-muted]="'color-mix(in srgb, ' + theme.text + ' 65%, transparent)'"
+  [style.--card-bg]="theme.card"
+  [style.--border-color]="theme.border"
+  [style.--primary-soft]="theme.soft"
+  [style.--primary-softer]="theme.softer"
+>
+  @if (activePortal === 'client') {
+    <div class="client-portal">
+      <header class="client-navbar">
+        <a class="brand" href="/" aria-label="TimeSlot, inicio">
+          <span class="brand-mark" aria-hidden="true">t</span>
+          <span>time<span class="brand-accent">slot</span></span>
+        </a>
+        <nav class="client-nav" aria-label="Navegación para clientes">
+          @for (item of clientNavigation; track item.id) {
+            <button
+              type="button"
+              class="client-nav-link"
+              [class.active]="activeClientView === item.id"
+              [attr.aria-current]="activeClientView === item.id ? 'page' : null"
+              (click)="setClientView(item.id)"
+            >
+              <span aria-hidden="true">{{ item.icon }}</span>{{ item.label }}
+            </button>
+          }
+        </nav>
+        <label class="portal-switch">
+          <span class="switch-label">Portal</span>
+          <select aria-label="Cambiar portal" [value]="activePortal" (change)="changePortal($event)">
+            <option value="client">Vista Cliente</option>
+            <option value="operator">Portal Operador</option>
+          </select>
+        </label>
+      </header>
+
+      <main class="client-main">
+        <section class="client-hero">
+          <div>
+            <p class="eyebrow">TIMESLOT · RESERVAS EN LÍNEA</p>
+            <h1>
+              @switch (activeClientView) {
+                @case ('booking') { {{ theme.bookingTitle }}, <span>a un paso.</span> }
+                @case ('reservations') { Tus reservas, <span>en un solo lugar.</span> }
+                @case ('services') { Encuentra el servicio <span>ideal para ti.</span> }
+              }
+            </h1>
+            <p class="client-hero-copy">
+              @switch (activeClientView) {
+                @case ('booking') { Elige el servicio, fecha y horario que mejor se adapten a ti. }
+                @case ('reservations') { Consulta rápidamente el estado de tus citas con tu correo. }
+                @case ('services') { Conoce las opciones disponibles, sus tarifas y duración. }
+              }
+            </p>
+          </div>
+          <div class="welcome-art" aria-hidden="true">
+            <div class="art-orbit"></div>
+            <div class="art-calendar">
+              <span class="art-calendar-top"></span>
+              <span class="art-calendar-day">23</span>
+              <span class="art-calendar-line"></span>
+              <span class="art-calendar-line short"></span>
+            </div>
+            <span class="art-sparkle sparkle-one">✦</span>
+            <span class="art-sparkle sparkle-two">✦</span>
+          </div>
+        </section>
+
+        @if (errorMessage) {
+          <div class="notice notice-error" role="alert">
+            <span>{{ errorMessage }}</span>
+            <button type="button" class="notice-close" aria-label="Cerrar aviso" (click)="errorMessage = ''">×</button>
+          </div>
+        }
+        @if (successMessage) {
+          <div class="notice notice-success" role="status">
+            <span>{{ successMessage }}</span>
+            <button type="button" class="notice-close" aria-label="Cerrar aviso" (click)="successMessage = ''">×</button>
+          </div>
+        }
+
+        @if (activeClientView === 'booking') {
+          <section class="client-booking-layout">
+            <div class="client-booking-intro">
+              <span class="client-step">RESERVA EN 3 PASOS</span>
+              <h2>{{ theme.bookingTitle }}</h2>
+              <p>Completa tus datos para que podamos confirmar tu cita.</p>
+              <div class="booking-benefits">
+                <div><span class="benefit-check">✓</span><span>Elige entre nuestros servicios</span></div>
+                <div><span class="benefit-check">✓</span><span>Selecciona el día y hora</span></div>
+                <div><span class="benefit-check">✓</span><span>Recibe seguimiento de tu reserva</span></div>
+              </div>
+              <button type="button" class="text-link" (click)="setClientView('services')">Ver servicios y tarifas <span aria-hidden="true">→</span></button>
+            </div>
+
+            <section class="panel client-form-panel" aria-labelledby="client-booking-title">
+              <div class="section-heading">
+                <div>
+                  <h2 id="client-booking-title">{{ theme.bookingHeading }}</h2>
+                  <p>Los campos marcados son obligatorios.</p>
+                </div>
+                <span class="form-step">01 / 01</span>
+              </div>
+              <form [formGroup]="appointmentForm" (ngSubmit)="submitAppointment()" novalidate>
+                <div class="form-field">
+                  <label for="client-service">{{ theme.serviceFieldLabel }}</label>
+                  <select id="client-service" formControlName="service_name">
+                    @for (service of serviceCatalog; track service.name) {
+                      <option [value]="service.name">{{ service.name }} · ${{ service.price }} · {{ service.duration }} min</option>
+                    }
+                  </select>
+                </div>
+                @for (field of themedBookingFields; track field.control) {
+                  <div class="form-field">
+                    <label [for]="'booking-' + field.control">{{ field.label }}</label>
+                    @if (field.type === 'select') {
+                      <select
+                        [id]="'booking-' + field.control"
+                        [formControl]="appointmentForm.controls[field.control]"
+                      >
+                        <option value="">{{ field.placeholder }}</option>
+                        @for (option of field.options ?? []; track option) {
+                          <option [value]="option">{{ option }}</option>
+                        }
+                      </select>
+                    } @else {
+                      <input
+                        [id]="'booking-' + field.control"
+                        [type]="field.type"
+                        [formControl]="appointmentForm.controls[field.control]"
+                        [placeholder]="field.placeholder"
+                        [min]="field.type === 'number' ? 1 : null"
+                        [class.invalid]="appointmentForm.controls[field.control].touched && appointmentForm.controls[field.control].invalid"
+                      />
+                    }
+                    @if (appointmentForm.controls[field.control].touched && appointmentForm.controls[field.control].hasError('required')) {
+                      <span class="field-error">Completa este campo.</span>
+                    }
+                  </div>
+                }
+                <div class="form-row">
+                  <div class="form-field">
+                    <label for="client-date">Fecha</label>
+                    <input
+                      id="client-date"
+                      type="date"
+                      formControlName="appointment_date"
+                      [min]="today"
+                      [class.invalid]="appointmentForm.controls.appointment_date.touched && appointmentForm.controls.appointment_date.invalid"
+                    />
+                    @if (appointmentForm.controls.appointment_date.touched && appointmentForm.controls.appointment_date.invalid) {
+                      <span class="field-error">Selecciona una fecha.</span>
+                    }
+                  </div>
+                  <div class="form-field">
+                    <label for="client-time">Hora</label>
+                    <input
+                      id="client-time"
+                      type="time"
+                      formControlName="appointment_time"
+                      [class.invalid]="appointmentForm.controls.appointment_time.touched && appointmentForm.controls.appointment_time.invalid"
+                    />
+                    @if (appointmentForm.controls.appointment_time.touched && appointmentForm.controls.appointment_time.invalid) {
+                      <span class="field-error">Selecciona una hora.</span>
+                    }
+                  </div>
+                </div>
+                <div class="form-field">
+                  <label for="client-name">{{ theme.customerNameLabel }}</label>
+                  <input
+                    id="client-name"
+                    type="text"
+                    formControlName="client_name"
+                    placeholder="Ej. Alex Rivera"
+                    autocomplete="name"
+                    [class.invalid]="appointmentForm.controls.client_name.touched && appointmentForm.controls.client_name.invalid"
+                  />
+                  @if (appointmentForm.controls.client_name.touched && appointmentForm.controls.client_name.invalid) {
+                    <span class="field-error">Ingresa tu nombre completo.</span>
+                  }
+                </div>
+                <div class="form-field">
+                  <label for="client-email">{{ theme.contactLabel }}</label>
+                  <input
+                    id="client-email"
+                    type="email"
+                    formControlName="client_email"
+                    placeholder="alex@ejemplo.com"
+                    autocomplete="email"
+                    [class.invalid]="appointmentForm.controls.client_email.touched && appointmentForm.controls.client_email.invalid"
+                  />
+                  @if (appointmentForm.controls.client_email.touched && appointmentForm.controls.client_email.invalid) {
+                    <span class="field-error">Ingresa un correo electrónico válido.</span>
+                  }
+                </div>
+                <div class="form-hint"><span aria-hidden="true">ⓘ</span> Tu correo te permitirá consultar el estado de tu reserva.</div>
+                <button class="submit-button" type="submit" [disabled]="isSubmitting">
+                  @if (isSubmitting) {
+                    <span class="button-spinner" aria-hidden="true"></span> Enviando reserva...
+                  } @else {
+                    <span>Confirmar reserva</span><span class="button-arrow" aria-hidden="true">→</span>
+                  }
+                </button>
+              </form>
+            </section>
+          </section>
+        }
+
+        @if (activeClientView === 'reservations') {
+          <section class="panel content-panel reservation-panel">
+            <div class="section-heading">
+              <div>
+                <h2>Consulta tus reservas</h2>
+                <p>Ingresa el correo que usaste al agendar tu cita.</p>
+              </div>
+              <span class="lookup-icon" aria-hidden="true">⌕</span>
+            </div>
+            <form class="lookup-form" (submit)="$event.preventDefault(); searchReservations()">
+              <label class="form-field">
+                <span>Correo electrónico</span>
+                <input
+                  type="email"
+                  name="reservation-email"
+                  autocomplete="email"
+                  placeholder="tu@correo.com"
+                  [value]="reservationEmail"
+                  (input)="updateReservationEmail($event)"
+                  required
+                />
+              </label>
+              <button class="submit-button lookup-button" type="submit">Buscar reservas <span aria-hidden="true">→</span></button>
+            </form>
+            @if (hasSearchedReservations) {
+              @if (myReservations.length === 0) {
+                <div class="empty-state">
+                  <div class="empty-icon" aria-hidden="true">⌕</div>
+                  <h3>No encontramos reservas</h3>
+                  <p>Verifica que el correo coincida con el que usaste al agendar.</p>
+                </div>
+              } @else {
+                <div class="reservation-results">
+                  @for (appointment of myReservations; track appointment.id) {
+                    <article class="reservation-card">
+                      <div class="appointment-date">
+                        <span>{{ appointment.appointment_date | date: 'dd' : 'UTC' }}</span>
+                        <small>{{ appointment.appointment_date | date: 'MMM' : 'UTC' }}</small>
+                      </div>
+                      <div class="reservation-info">
+                        <div class="appointment-topline">
+                          <h3>{{ appointment.service_name }}</h3>
+                          <span class="status-badge" [class]="'status-badge status-' + appointment.status.toLowerCase()">
+                            <span class="status-dot"></span>{{ statusLabel(appointment.status) }}
+                          </span>
+                        </div>
+                        <p>{{ appointment.appointment_date | date: 'EEEE, d MMMM yyyy' : 'UTC' }} · {{ appointment.appointment_time }}</p>
+                      </div>
+                    </article>
+                  }
+                </div>
+              }
+            }
+          </section>
+        }
+
+        @if (activeClientView === 'services') {
+          <section class="panel content-panel">
+            <div class="section-heading">
+              <div>
+                <h2>Servicios y tarifas</h2>
+                <p>Elige la opción que mejor se adapte a lo que necesitas.</p>
+              </div>
+              <span class="section-count">{{ serviceCatalog.length }} servicios</span>
+            </div>
+            <div class="service-grid client-service-grid">
+              @for (service of serviceCatalog; track service.name) {
+                <article class="service-card">
+                  <div class="service-card-top">
+                    <span class="service-icon" aria-hidden="true">✦</span>
+                    <span class="service-tag">Disponible</span>
+                  </div>
+                  <h3>{{ service.name }}</h3>
+                  <p>{{ service.description }}</p>
+                  <div class="service-details">
+                    <div><span>Duración</span><strong>{{ service.duration }} min</strong></div>
+                    <div><span>Tarifa</span><strong>${{ service.price }}</strong></div>
+                  </div>
+                  <button type="button" class="service-book-link" (click)="selectService(service.name)">Reservar este servicio <span aria-hidden="true">→</span></button>
+                </article>
+              }
+            </div>
+          </section>
+        }
+
+        <footer class="page-footer client-footer">
+          <span>TimeSlot</span>
+          <span>Tu tiempo, bien organizado.</span>
+        </footer>
+      </main>
+    </div>
+  } @else if (isAdminLoggedIn) {
+    <div class="operator-portal dashboard-shell">
+      <aside class="sidebar">
+        <a class="brand" href="/" aria-label="TimeSlot, inicio">
+          <span class="brand-mark" aria-hidden="true">t</span>
+          <span>time<span class="brand-accent">slot</span></span>
+        </a>
+        <div class="workspace-label">GESTIÓN DEL NEGOCIO</div>
+        <nav class="side-nav" aria-label="Navegación del portal operador">
+          @for (item of operatorNavigation; track item.id) {
+            <button
+              type="button"
+              class="nav-link"
+              [class.active]="activeOperatorView === item.id"
+              [attr.aria-current]="activeOperatorView === item.id ? 'page' : null"
+              (click)="setOperatorView(item.id)"
+            >
+              <span class="nav-icon" aria-hidden="true">{{ item.icon }}</span>
+              <span>{{ item.label }}</span>
+              @if (item.id === 'dashboard' && pendingAppointments > 0) {
+                <span class="nav-count">{{ pendingAppointments }}</span>
+              }
+            </button>
+          }
+        </nav>
+        <div class="sidebar-bottom">
+          <div class="sidebar-help">
+            <span class="help-icon" aria-hidden="true">✦</span>
+            <strong>Tu negocio, en orden</strong>
+            <span>Administra tu tiempo desde un solo lugar.</span>
+          </div>
+          <div class="profile">
+            <div class="avatar">PR</div>
+            <div class="profile-copy"><strong>Portal Operador</strong><span>Gestión del negocio</span></div>
+            <button type="button" class="logout-button" (click)="logoutAdmin()">
+              <span aria-hidden="true">⇥</span><span>Cerrar sesión</span>
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <main class="main-area">
+        <header class="topbar">
+          <div class="breadcrumb"><span>TimeSlot</span><span class="breadcrumb-divider">/</span><strong>Portal Operador</strong></div>
+          <div class="topbar-actions">
+            <span class="availability"><span class="online-indicator"></span> Agenda activa</span>
+            <label class="portal-switch operator-switch">
+              <span class="switch-label">Portal</span>
+              <select aria-label="Cambiar portal" [value]="activePortal" (change)="changePortal($event)">
+                <option value="client">Vista Cliente</option>
+                <option value="operator">Portal Operador</option>
+              </select>
+            </label>
+          </div>
+        </header>
+
+        <div class="page-content">
+          <section class="welcome">
+            <div>
+              <p class="eyebrow">PORTAL DEL OPERADOR</p>
+              <h1>
+                @switch (activeOperatorView) {
+                  @case ('dashboard') { Dashboard <span>&amp; Agenda.</span> }
+                  @case ('services') { Configuración <span>de servicios.</span> }
+                  @case ('schedule') { Horarios <span>de atención.</span> }
+                  @case ('clients') { Directorio <span>de clientes.</span> }
+                  @case ('theme') { Tema <span>y rubro.</span> }
+                }
+              </h1>
+              <p class="welcome-copy">
+                @switch (activeOperatorView) {
+                  @case ('dashboard') { Supervisa las citas del día y actualiza su estado. }
+                  @case ('services') { Administra tarifas y duración de tus turnos. }
+                  @case ('schedule') { Configura jornadas y bloquea horarios no disponibles. }
+                  @case ('clients') { Consulta el historial de personas que reservaron. }
+                  @case ('theme') { Personaliza la apariencia y el formulario para tu tipo de negocio. }
+                }
+              </p>
+            </div>
+            <div class="welcome-art" aria-hidden="true">
+              <div class="art-orbit"></div>
+              <div class="art-calendar">
+                <span class="art-calendar-top"></span>
+                <span class="art-calendar-day">23</span>
+                <span class="art-calendar-line"></span>
+                <span class="art-calendar-line short"></span>
+              </div>
+              <span class="art-sparkle sparkle-one">✦</span>
+              <span class="art-sparkle sparkle-two">✦</span>
+            </div>
+          </section>
+
+          @if (errorMessage) {
+            <div class="notice notice-error" role="alert">
+              <span>{{ errorMessage }}</span>
+              <button type="button" class="notice-close" aria-label="Cerrar aviso" (click)="errorMessage = ''">×</button>
+            </div>
+          }
+          @if (successMessage) {
+            <div class="notice notice-success" role="status">
+              <span>{{ successMessage }}</span>
+              <button type="button" class="notice-close" aria-label="Cerrar aviso" (click)="successMessage = ''">×</button>
+            </div>
+          }
+
+          @if (activeOperatorView === 'dashboard') {
+            <section class="stats-grid" aria-label="Resumen de agenda">
+              <article class="stat-card">
+                <span class="stat-icon stat-blue" aria-hidden="true">▦</span>
+                <div><span class="stat-label">Citas de hoy</span><strong>{{ appointmentsToday }}</strong></div>
+                <span class="stat-caption">{{ today | date: 'd MMM' : 'UTC' }}</span>
+              </article>
+              <article class="stat-card">
+                <span class="stat-icon stat-amber" aria-hidden="true">◷</span>
+                <div><span class="stat-label">Pendientes</span><strong>{{ pendingAppointments }}</strong></div>
+                <span class="stat-caption">por atender</span>
+              </article>
+              <article class="stat-card">
+                <span class="stat-icon stat-green" aria-hidden="true">♧</span>
+                <div><span class="stat-label">Clientes</span><strong>{{ clients.length }}</strong></div>
+                <span class="stat-caption">registrados</span>
+              </article>
+            </section>
+
+            <section class="panel appointments-panel operator-agenda" aria-labelledby="operator-agenda-title">
+              <div class="appointments-heading">
+                <div class="panel-heading">
+                  <div class="heading-icon list-icon" aria-hidden="true">☷</div>
+                  <div><h2 id="operator-agenda-title">Agenda de citas</h2><p>Filtra citas por día y estado.</p></div>
+                </div>
+                <button type="button" class="refresh-button" aria-label="Actualizar citas" title="Actualizar citas" [disabled]="isLoading" (click)="refreshAppointments()">↻</button>
+              </div>
+              <div class="agenda-filters">
+                <label class="form-field"><span>Fecha</span><input type="date" [value]="dashboardDate" (change)="updateDashboardDate($event)" /></label>
+                <label class="form-field">
+                  <span>Estado</span>
+                  <select [value]="dashboardStatus" (change)="updateDashboardStatus($event)">
+                    <option value="all">Todos los estados</option>
+                    <option value="pending">Pendiente</option>
+                    <option value="completed">Completada</option>
+                    <option value="cancelled">Cancelada</option>
+                  </select>
+                </label>
+              </div>
+              <div class="appointment-summary">
+                <span class="summary-dot"></span>
+                <span>{{ filteredAppointments.length }} {{ filteredAppointments.length === 1 ? 'cita encontrada' : 'citas encontradas' }}</span>
+              </div>
+              @if (isLoading) {
+                <div class="loading-state" role="status"><span class="loading-spinner"></span> Cargando agenda...</div>
+              } @else if (filteredAppointments.length === 0) {
+                <div class="empty-state">
+                  <div class="empty-icon" aria-hidden="true">▦</div>
+                  <h3>No hay citas para estos filtros</h3>
+                  <p>Prueba con otra fecha o estado.</p>
+                </div>
+              } @else {
+                <div class="appointment-list">
+                  @for (appointment of filteredAppointments; track appointment.id) {
+                    <article class="appointment-card">
+                      <div class="appointment-date">
+                        <span>{{ appointment.appointment_date | date: 'dd' : 'UTC' }}</span>
+                        <small>{{ appointment.appointment_date | date: 'MMM' : 'UTC' }}</small>
+                      </div>
+                      <div class="appointment-details">
+                        <div class="appointment-topline">
+                          <h3>{{ appointment.client_name }}</h3>
+                          <span class="status-badge" [class]="'status-badge status-' + appointment.status.toLowerCase()">
+                            <span class="status-dot"></span>{{ statusLabel(appointment.status) }}
+                          </span>
+                        </div>
+                        <p class="appointment-service">{{ appointment.service_name }} · {{ appointment.client_email }}</p>
+                        <div class="appointment-meta"><span>◷ {{ appointment.appointment_time }}</span><span>{{ appointment.appointment_date | date: 'EEEE' : 'UTC' }}</span></div>
+                        <label class="status-control">
+                          Actualizar estado
+                          <select
+                            [value]="appointment.status"
+                            [disabled]="updatingAppointmentId === appointment.id"
+                            (change)="updateAppointmentStatus(appointment, $event)"
+                          >
+                            <option value="pending">Pendiente</option>
+                            <option value="completed">Completada</option>
+                            <option value="cancelled">Cancelada</option>
+                          </select>
+                        </label>
+                      </div>
+                    </article>
+                  }
+                </div>
+              }
+            </section>
+          }
+
+          @if (activeOperatorView === 'services') {
+            <section class="panel content-panel">
+              <div class="section-heading">
+                <div><h2>Configuración de servicios</h2><p>Ajusta tarifas y duración de los turnos.</p></div>
+                <span class="section-count">{{ serviceCatalog.length }} servicios</span>
+              </div>
+              <div class="service-grid">
+                @for (service of serviceCatalog; track service.name) {
+                  <article class="service-card">
+                    <div class="service-card-top"><span class="service-icon" aria-hidden="true">✦</span><span class="service-tag">Activo</span></div>
+                    <h3>{{ service.name }}</h3>
+                    <p>{{ service.description }}</p>
+                    <div class="service-edit-fields">
+                      <label class="form-field"><span>Duración (min)</span><input type="number" min="1" [value]="service.duration" (change)="updateService(service, 'duration', $event)" /></label>
+                      <label class="form-field"><span>Tarifa ($)</span><input type="number" min="1" step="0.01" [value]="service.price" (change)="updateService(service, 'price', $event)" /></label>
+                    </div>
+                  </article>
+                }
+              </div>
+              <p class="demo-note">Los ajustes se conservan durante esta sesión y aún no se sincronizan con el servidor.</p>
+            </section>
+          }
+
+          @if (activeOperatorView === 'theme') {
+            <section class="panel content-panel theme-manager">
+              <div class="section-heading">
+                <div>
+                  <h2>Selecciona el rubro de tu negocio</h2>
+                  <p>Selecciona un rubro y explora sus paletas antes de aplicarlas.</p>
+                </div>
+                <span class="section-count">{{ draftTheme.icon }} {{ draftTheme.name }}</span>
+              </div>
+              <div class="theme-grid">
+                @for (preset of themePresets; track preset.id) {
+                  <button
+                    type="button"
+                    class="theme-card"
+                    [class.theme-card-clinic]="preset.id === 'clinic'"
+                    [class.theme-card-restaurant]="preset.id === 'restaurant'"
+                    [class.theme-card-law]="preset.id === 'law'"
+                    [class.selected]="draftThemeId === preset.id"
+                    [attr.aria-pressed]="draftThemeId === preset.id"
+                    (click)="selectDraftTheme(preset.id)"
+                  >
+                    <span class="theme-card-banner">
+                      <span class="theme-icon" aria-hidden="true">
+                        @switch (preset.id) {
+                          @case ('clinic') { ✚ }
+                          @case ('restaurant') { 🍽 }
+                          @case ('law') { ⚖ }
+                        }
+                      </span>
+                      <span class="theme-card-badge">
+                        {{ draftThemeId === preset.id ? 'Seleccionado' : 'Elegir rubro' }}
+                      </span>
+                    </span>
+                    <span class="theme-card-content">
+                      <strong>{{ preset.name }}</strong>
+                      <span class="theme-description">{{ preset.description }}</span>
+                    </span>
+                    <span class="theme-swatches" aria-label="Colores del tema">
+                      @for (palette of preset.palettes; track palette.id) {
+                        <span
+                          [style.background]="'linear-gradient(135deg, ' + palette.primary + ' 50%, ' + palette.accent + ' 50%)'"
+                          [attr.aria-label]="palette.name"
+                        ></span>
+                      }
+                    </span>
+                    <span class="theme-radio" aria-hidden="true">{{ draftThemeId === preset.id ? '✓' : '' }}</span>
+                  </button>
+                }
+              </div>
+
+              <div class="palette-picker">
+                <div class="palette-picker-heading">
+                  <div>
+                    <h3>Paleta de colores</h3>
+                    <p>{{ draftTheme.name }} · elige una combinación para previsualizarla.</p>
+                  </div>
+                </div>
+                <div class="palette-grid">
+                  @for (palette of draftPalettes; track palette.id) {
+                    <button
+                      type="button"
+                      class="palette-card"
+                      [class.selected]="draftPaletteId === palette.id"
+                      [attr.aria-pressed]="draftPaletteId === palette.id"
+                      [attr.aria-label]="palette.name + (draftPaletteId === palette.id ? ', seleccionada' : '')"
+                      (click)="selectDraftPalette(palette.id)"
+                    >
+                      <span class="palette-card-check" aria-hidden="true">{{ draftPaletteId === palette.id ? '✓' : '' }}</span>
+                      <span class="palette-swatches">
+                        <span [style.background]="palette.primary"></span>
+                        <span [style.background]="palette.accent"></span>
+                        <span [style.background]="palette.background"></span>
+                      </span>
+                      <strong>{{ palette.name }}</strong>
+                      <span class="palette-values">{{ palette.primary }} · {{ palette.accent }}</span>
+                      <span
+                        class="palette-mini-preview"
+                        [style.background]="palette.background"
+                        [style.color]="palette.text"
+                      >
+                        <span [style.background]="palette.primary"></span>
+                        <span [style.background]="palette.accent"></span>
+                      </span>
+                    </button>
+                  }
+                </div>
+              </div>
+
+              <div class="theme-preview">
+                <div class="theme-preview-heading">
+                  <div>
+                    <h3>Vista previa · {{ draftPalette.name }}</h3>
+                    <p>Vista previa de la paleta activa en ambos portales.</p>
+                  </div>
+                </div>
+                <div
+                  class="theme-preview-booking"
+                  [style.--preview-primary]="draftPalette.primary"
+                  [style.--preview-accent]="draftPalette.accent"
+                  [style.--preview-background]="draftPalette.background"
+                  [style.--preview-text]="draftPalette.text"
+                  [style.--preview-card]="draftPalette.card"
+                  [style.--preview-border]="draftPalette.border"
+                >
+                  <div class="preview-heading">
+                    <span class="preview-brand-mark">t</span>
+                    <span>{{ draftTheme.bookingTitle }}</span>
+                  </div>
+                  <div class="preview-fields">
+                    @for (field of draftBookingFields; track field.control) {
+                      <span>{{ field.label }}</span>
+                    }
+                  </div>
+                  <span class="preview-submit">Reservar cita</span>
+                </div>
+              </div>
+              <p class="demo-note">Cada selección se aplica de inmediato en ambos portales y se guarda automáticamente en este navegador.</p>
+            </section>
+          }
+
+          @if (activeOperatorView === 'schedule') {
+            <section class="panel content-panel schedule-panel">
+              <div class="section-heading">
+                <div><h2>Horarios de atención</h2><p>Define tus jornadas habituales y bloquea momentos específicos.</p></div>
+                <span class="section-count">{{ activeWorkDays }} días activos</span>
+              </div>
+              <div class="schedule-content">
+                <div class="schedule-group">
+                  <h3>Días disponibles</h3>
+                  <div class="weekday-list">
+                    @for (day of workDays; track day.label) {
+                      <button type="button" class="weekday" [class.selected]="day.enabled" [attr.aria-pressed]="day.enabled" (click)="toggleWorkDay(day)">
+                        <span class="weekday-check">{{ day.enabled ? '✓' : '' }}</span><span>{{ day.label }}</span>
+                      </button>
+                    }
+                  </div>
+                </div>
+                <div class="schedule-group hours-group">
+                  <h3>Horas de atención</h3>
+                  <div class="hours-fields">
+                    <label class="form-field"><span>Hora de inicio</span><input type="time" [value]="openingTime" (change)="updateWorkHours('opening', $event)" /></label>
+                    <span class="hours-separator">a</span>
+                    <label class="form-field"><span>Hora de fin</span><input type="time" [value]="closingTime" (change)="updateWorkHours('closing', $event)" /></label>
+                  </div>
+                  <div class="schedule-preview"><span class="online-indicator"></span> Atención de {{ openingTime }} a {{ closingTime }}</div>
+                </div>
+              </div>
+              <div class="blocked-hours">
+                <div class="blocked-heading"><div><h3>Bloqueos de horario</h3><p>Evita reservas en fechas y horas puntuales.</p></div></div>
+                <div class="block-hour-form">
+                  <label class="form-field"><span>Fecha</span><input type="date" [min]="today" [value]="blockedDate" (change)="updateBlockedDate($event)" /></label>
+                  <label class="form-field"><span>Hora</span><input type="time" [value]="blockedTime" (change)="updateBlockedTime($event)" /></label>
+                  <button type="button" class="secondary-button" (click)="addBlockedHour()">Añadir bloqueo</button>
+                </div>
+                @if (blockedHours.length === 0) {
+                  <p class="blocked-empty">Todavía no hay horarios bloqueados.</p>
+                } @else {
+                  <div class="blocked-list">
+                    @for (block of blockedHours; track block.id) {
+                      <div class="blocked-item">
+                        <span>◷ {{ block.date | date: 'd MMM yyyy' : 'UTC' }} · {{ block.time }}</span>
+                        <button type="button" aria-label="Eliminar bloqueo" (click)="removeBlockedHour(block.id)">Quitar</button>
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+              <p class="demo-note">La configuración de jornadas y bloqueos es local a esta sesión y no modifica aún la disponibilidad del servidor.</p>
+            </section>
+          }
+
+          @if (activeOperatorView === 'clients') {
+            <section class="panel content-panel clients-panel">
+              <div class="section-heading">
+                <div><h2>Directorio de clientes</h2><p>Historial de personas que han agendado una cita.</p></div>
+                <span class="section-count">{{ clients.length }} clientes</span>
+              </div>
+              @if (clients.length === 0) {
+                <div class="empty-state client-empty">
+                  <div class="empty-icon" aria-hidden="true">♧</div>
+                  <h3>Aún no tienes clientes</h3>
+                  <p>Los clientes aparecerán aquí cuando agenden una cita.</p>
+                </div>
+              } @else {
+                <div class="table-scroll">
+                  <table class="clients-table">
+                    <thead><tr><th>Cliente</th><th>Correo electrónico</th><th>Citas</th><th>Última cita</th></tr></thead>
+                    <tbody>
+                      @for (client of clients; track client.email) {
+                        <tr>
+                          <td><span class="client-cell"><span class="client-avatar">{{ client.name.slice(0, 1).toUpperCase() }}</span><strong>{{ client.name }}</strong></span></td>
+                          <td>{{ client.email }}</td>
+                          <td><span class="client-appointments">{{ client.appointments }}</span></td>
+                          <td>{{ client.lastAppointment | date: 'd MMM yyyy' : 'UTC' }}</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
+            </section>
+          }
+          <footer class="page-footer"><span>TimeSlot · Operador</span><span>Gestión del negocio.</span></footer>
+        </div>
+      </main>
+    </div>
+  } @else {
+    <main class="admin-login-page">
+      <header class="admin-login-navbar">
+        <a class="brand" href="/" aria-label="TimeSlot, inicio">
+          <span class="brand-mark" aria-hidden="true">t</span>
+          <span>time<span class="brand-accent">slot</span></span>
+        </a>
+        <label class="portal-switch">
+          <span class="switch-label">Portal</span>
+          <select aria-label="Cambiar portal" [value]="activePortal" (change)="changePortal($event)">
+            <option value="client">Vista Cliente</option>
+            <option value="operator">Portal Operador</option>
+          </select>
+        </label>
+      </header>
+      <section class="admin-login-card" aria-labelledby="admin-login-title">
+        <div class="admin-login-icon" aria-hidden="true">⌑</div>
+        <p class="eyebrow">ACCESO RESTRINGIDO</p>
+        <h1 id="admin-login-title">Portal del Operador</h1>
+        <p class="admin-login-copy">Ingresa la contraseña de administrador para gestionar la agenda y los datos del negocio.</p>
+        @if (errorMessage) {
+          <div class="login-error" role="alert">{{ errorMessage }}</div>
+        }
+        <form [formGroup]="adminLoginForm" (ngSubmit)="submitAdminLogin()">
+          <label class="form-field" for="admin-password">
+            <span>Contraseña de administrador</span>
+            <input
+              id="admin-password"
+              type="password"
+              formControlName="password"
+              autocomplete="current-password"
+              placeholder="Ingresa tu contraseña"
+            />
+          </label>
+          <button class="submit-button" type="submit">Ingresar al portal <span class="button-arrow" aria-hidden="true">→</span></button>
+        </form>
+        <button type="button" class="login-back-link" (click)="setPortal('client')">← Volver a Vista Cliente</button>
+      </section>
+      <p class="login-dev-note">Acceso al portal de gestión protegido.</p>
+    </main>
+  }
+</div>
